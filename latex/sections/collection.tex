@@ -1,0 +1,195 @@
+\section{Implementation}
+\label{sec:implementation}
+
+In this section, after introducing Vienna's public transport network, the data collection process is described in detail. Next, the results of the delay analysis are presented, showing results both on a network-wide level and in more detail for single lines or stations. Finally, visualizations that try to make the large data set easier to understand are presented. All information about the network, especially locations of stations and lines was gathered from the network map provided by the network operator Wiener Linien \autocite{wiener-linien-2023}.
+
+\subsection{Vienna's public transport network}
+
+The public transport network in the city of Vienna is very popular
+and well-received among the city's population. A case study by \textcite[917,921]{haslauer-2015} showed that 75 percent of the population uses the network multiple times per week and that the average satisfaction lies at 1.57 when rated on a scale from 1 to 5, with 1 being the best score (very satisfied). One factor of the high popularity is the comparatively cheap access to the system with a yearly ticket costing 365 euros, resulting in 852,300 of those tickets sold in 2019 \autocite{wiener-linien-2020}.  
+
+The network is owned and operated by Wiener Linien, a subsidiary of Wiener Stadtwerke Holding, which in turn is fully owned by the city of Vienna.
+The network consists of 5 metro lines, 28 tram lines and 131 bus lines and has a total length of 1169 kilometers \autocite{wiener-linien-2020}. Additionally, there is a suburban rail line connecting the city center with the town of Baden, operated by another subsidiary, Wiener Lokalbahnen. The line contributes 10.3 million to the total 606.1 million passengers transported by both companies in 2021 \autocite[24]{wiener-stadtwerke-2022}. Furthermore, Austria's federal railway operator ÖBB runs 10 suburban train lines from Vienna to and from neighboring towns in Lower Austria, adding another 89 million yearly passengers to Vienna's transit network \autocite{oebb-2023}.
+
+
+\subsection{Data collection}
+
+The necessary data for detecting potential delay hotspots were collected over a duration of one month, specifically from \DTMdisplaydate{2023}{2}{18}{} to \DTMdisplaydate{2023}{3}{20}{}.
+The collection was done by automated scripts using the \textit{hafas-client} JavaScript library available on GitHub.\footnote{\url{https://github.com/public-transport/hafas-client} (Accessed \DTMdisplaydate{2023}{4}{30}{})} It can be used to query \ac{HAFAS} \ac{API} endpoints from various public transport companies. In the case of Vienna, the relevant company is \ac{VOR}, the transport authority for the eastern region of Austria, which includes the federal states of Vienna, Lower Austria and Burgenland. The following subsections try to explain in more detail how both station and departure data were collected and persisted for further analysis.
+
+\subsubsection{Stations}
+
+Departure and delay data can be queried using the \texttt{departures} method available in \textit{hafas-client}. This method expects a station object or identifier as its argument, thus a list of such station identifiers had to be created first. Since there exists no method to get a collection of all stations the network contains, the \texttt{nearby} method was used to get a list of stations within a radius (measured in meters of walking distance) from a specified coordinate pair. An example of such a query can be seen in \cref{code:stations}; a \texttt{station} object contained in the response is shown in \cref{code:station-res}. 
+
+\begin{lstlisting}[language=JavaScript, caption={Retrieving nearby stations from given coordinates}, label={code:stations}]
+import { createClient } from "hafas-client";
+import { profile } from "hafas-client/p/vor/index.js";
+
+const hafas_client = createClient(profile, "hafas-ba");
+
+const center = {
+    type: "location",
+    latitude: 48.2084,
+    longitude: 16.3778,
+};
+
+const locations = await hafas_client.nearby(center, {
+	products: {
+		tram: true,
+		"u-bahn": true,
+		"city-bus": true,
+	},
+	subStops: false,
+	entrances: false,
+	linesOfStops: true,
+	results: 5000,
+	distance: 100_000,
+});
+\end{lstlisting}
+
+\begin{lstlisting}[caption={\texttt{station} object returned by the \ac{HAFAS} \ac{API}}, label={code:station-res}]
+{
+	"type": "station",
+	"id": "490132000",
+	"name": "Wien Stephansplatz",
+	"location": {
+		"type": "location",
+		"id": "490132000",
+		"latitude": 48.208133,
+		"longitude": 16.371631
+	},
+	"products": {
+		"train-and-s-bahn": false,
+		"u-bahn": true,
+		"tram": false,
+		"city-bus": true,
+	},
+	"isMeta": true
+}
+\end{lstlisting}
+
+The idea was to choose a point in the city center and get all available stations by using a maximum walking distance of 20,000 meters, far exceeding the theoretical maximum distance to the city borders following the fact that Vienna has a maximum north-south and east-west extension of 22.8  and 29.4 kilometers respectively \autocite[14]{stadt-wien-2022}. It was found though that the number of stations did not increase with a maximum walking distance higher than 7200 meters, capping out at 997 found stations. In order to retrieve the rest of the stations, four additional coordinate pairs were selected which cover all missing regions, especially ones near the city border. Finally, duplicated results and results that did not include the prefix \enquote{Wien} were removed, as those are situated in the neighboring state of Lower Austria which is not covered by this thesis. Using this described method, a total of 1756 stations were collected and saved to an SQLite database. From there, they can be used for the next step, querying departure and delay data from these stations.
+
+\subsubsection{Departures}
+
+Collecting the desired delay data was achieved by using the \texttt{departures} method of the \textit{hafas-client} library. The method receives a list of stations and returns departure objects for those stations, which can be seen in \cref{code:departures} and \cref{code:departures-res}. These objects contain properties for planned and actual departure times and with that the resulting delay, if applicable. 
+
+\begin{lstlisting}[language=JavaScript, caption={Retrieving departures from a given station ID}, label={code:departures}]
+import { createClient } from "hafas-client";
+import { profile } from "hafas-client/p/vor/index.js";
+
+const hafas_client = createClient(profile, "hafas-ba");
+const station_id = "490132000"; // Wien Stephansplatz
+
+const { departures } = await hafas_client.departures(station_id, {
+	duration: 50,
+	subStops: false,
+	entrances: false,
+	results: 60,
+});
+\end{lstlisting}
+
+\begin{lstlisting}[caption={A \texttt{departure} object returned by the \ac{HAFAS} \ac{API}}, label={code:departures-res}]
+	{
+		"tripId": "2|#VN#1#ST#1680820733#PI#0#ZI#66304#TA#1#DA...",
+		"stop": {...},
+		"when": "2023-04-07T09:33:00+02:00",
+		"plannedWhen": "2023-04-07T09:32:00+02:00",
+		"delay": 60,
+		"platform": "2",
+		"plannedPlatform": "2",
+		"prognosisType": "prognosed",
+		"direction": "Wien Alaudagasse",
+		"provenance": null,
+		"line": {
+			"type": "line",
+			"id": "vor-21-u1-j23-3",
+			"fahrtNr": "586",
+			"name": "U1",
+			"public": true,
+			"adminCode": "v04WL_",
+			"mode": "train",
+			"product": "u-bahn",
+			"operator": {
+				"type": "operator",
+				"id": "wiener-linien",
+				"name": "Wiener Linien"
+			}
+		},
+		"remarks": [
+			{ "type": "hint", "code": "LF", "text": "Niederflurfahrzeug" }
+		],
+		"origin": null,
+		"destination": {
+			"type": "stop",
+			"id": "490001409",
+			"name": "Wien Alaudagasse",
+			"location": {...},
+			"products": {...},
+			"station": {...}
+		},
+		"currentTripPosition": {
+			"type": "location",
+			"latitude": 48.213994,
+			"longitude": 16.383191
+		}
+	}
+\end{lstlisting}
+
+Since the \ac{HAFAS} \ac{API} did not reliably work when fetching departures for all 1756 stations, an alternative strategy was chosen. Instead, only one station at a time was queried in a one-second interval, specifying a time span of 50 minutes of upcoming departures included in the result. After every station was visited, the cycle starts from the beginning, which results in each station being visited approximately every 30 minutes. A unique ID consisting of the identifiers of both the trip and station was assigned to each departure result in order to detect results that were already included in previous cycles. In those cases of duplicates, the newer result was selected in order to ensure the most current and accurate data was saved for each departure. The source code for this process can be seen in \cref{code:monitor}. This script was then executed with \texttt{nohup} so that it can continuously run in the background on a Linux server during the collection period.
+
+\begin{lstlisting}[caption={A \texttt{departure} object returned by the \ac{HAFAS} \ac{API}}, label={code:monitor}]
+import { hafas_client } from "./client.js";
+import { db } from "./db.js";
+import { sleep } from "./utils.js";
+
+const station_ids = await db.selectFrom("stations").select("id").execute();
+let i = 0;
+
+while (i < station_ids.length) {
+	const { id: station_id } = station_ids[i];
+	const { departures } = await hafas_client.departures(station_id, {
+		duration: 50,
+		subStops: false,
+		entrances: false,
+		results: 60,
+	});
+	let inserted = 0;
+
+	for (const dep of departures) {
+		const new_dep = {
+			id: "",
+			direction: dep.direction,
+			delay: dep.delay,
+			when: dep.when,
+			planned_when: dep.plannedWhen,
+			station_id: dep.stop?.station?.id ?? dep.stop?.id,
+			station_name: dep.stop?.station?.name ?? dep.stop?.name,
+			line_id: dep.line?.id,
+			line_name: dep.line?.name,
+			product: dep.line?.product,
+		};
+		new_dep.id = `${new_dep.station_id}_${dep.tripId}`;
+		const result = await db
+			.insertInto("departures")
+			.values(new_dep)
+			.onConflict((oc) => oc.column("id").doUpdateSet(new_dep))
+			.execute();
+		inserted += +result[0].numInsertedOrUpdatedRows ?? 0;
+	}
+
+	await sleep(1000);
+	i++;
+
+	if (i === stations.length) {
+		i = 0;
+	}
+}
+\end{lstlisting}
+
+\subsubsection{Persisting the collected data}
+\label{sec:persisting}
+
+For persisting the collected data, SQLite, a self-contained \ac{RDBMS} was used together with the TypeScript based \textit{kysely} library for building \ac{SQL} queries. Using a \ac{RDBMS} with a query builder has the advantage of providing a great developer experience, with type-safe methods for querying the database and features like insertion conflict handling, which was especially important for assuring no duplicate stations and departures were saved.
+
+While a \ac{RDBMS} like SQLite is a good tool for data collection, the resulting departures table was converted into a \ac{CSV} file for further persistence and analysis. One reason for that is the substantially smaller file size of 4.6\,GB, compared to the SQLite file's size of 8.2\,GB, resulting in a reduction of around 44\%. The collected data set contains a total of 13,720,298 recorded departures with an average of 457,347 departures per day.

@@ -1,0 +1,32 @@
+File: body.tex
+Encoding: utf8
+Sum count: 9259
+Words in text: 9021
+Words in headers: 80
+Words outside text (captions, etc.): 158
+Number of headers: 32
+Number of floats/tables/figures: 20
+Number of math inlines: 0
+Number of math displayed: 0
+Subcounts:
+  text+headers+captions (#headers/#floats/#inlines/#displayed)
+  1+0+0 (0/0/0/0) _top_
+  479+1+0 (1/0/0/0) Section: Introduction
+  0+2+0 (1/0/0/0) Section: Related Work
+  438+2+23 (1/2/0/0) Subsection: The Hague
+  414+1+0 (1/0/0/0) Subsection: Portland
+  421+3+0 (1/0/0/0) Subsection: New York City
+  149+2+0 (1/0/0/0) Subsection: Stochastic models
+  672+4+0 (3/0/0/0) Subsection: Data availability
+  82+1+0 (1/0/0/0) Section: Implementation
+  215+4+0 (1/0/0/0) Subsection: Vienna's public transport network
+  743+8+8 (4/0/0/0) Subsection: Data collection
+  1794+25+83 (8/13/0/0) Subsection: Delay analysis
+  833+12+44 (3/5/0/0) Subsection: Visualizations
+  20+1+0 (1/0/0/0) Section: Discussion
+  841+4+0 (1/0/0/0) Subsection: Line and station overview
+  545+6+0 (1/0/0/0) Subsection: Tram line 71 and station \textit{Karlsplatz}
+  388+1+0 (1/0/0/0) Subsection: Visualizations
+  558+1+0 (1/0/0/0) Section: Conclusion
+  428+2+0 (1/0/0/0) Subsection: Future Work
+

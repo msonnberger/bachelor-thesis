@@ -1,0 +1,26 @@
+\ifmmtlanguagegerman
+\section*{Abkürzungsverzeichnis}
+\else
+\section*{Abbreviations and Acronyms}
+\fi
+
+% use as \ac{AR} in the text in body.tex and you don't have to think about
+% introducing acronyms anymore correctly at the first mention in the text.
+% do not use \ac in the Abstract/Kurzfassung. Otherwise, acronyms must be
+% reintroduced in the main text
+%
+% if you want to use the acronym package for the paper template
+% define the acronyms using acrodef and without the acronym environment
+% \acrodef{AR}{Augmented Reality} somewhere in body.tex. this file
+% will not be included when using the paper template.
+\begin{acronym}
+	\acro{API}{Application Programming Interface}
+	\acro{CSV}{comma-separated values}
+	\acro{FPTF}{Friendly Public Transport Format}
+	\acro{GTFS}{General Transit Feed Specification}
+	\acro{HAFAS}{HaCon-Fahrplan-Auskunfts-System}
+	\acro{JSON}{JavaScript Object Notation}
+	\acro{RDBMS}{relational database management system}
+	\acro{SQL}{Structured Query Language}
+	\acro{VOR}{Verkehrsverbund Ost-Region}
+\end{acronym}
